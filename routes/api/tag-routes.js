@@ -50,7 +50,6 @@ router.put('/:id', async (req, res) => {
 
     const data = await Tag.update({ tag_name }, { where: { id } });
     data ? res.json(data) : res.status(404).json({ message: `Tag was not found.` });
-    // const
   } catch (error) {
     console.log(error);
     res.status(500).json(error);
