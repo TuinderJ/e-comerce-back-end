@@ -6,8 +6,6 @@ const { Product, Category, Tag, ProductTag } = require('../../models');
 //: get all products
 router.get('/', async (req, res) => {
   //: find all products
-  //: be sure to include its associated Category and Tag data
-  //: TODO: add more validation and fix empty tags
   try {
     const data = await Product.findAll({ include: [Category, Tag] });
     res.json(data);
@@ -62,18 +60,15 @@ router.post('/', async (req, res) => {
 
 //: update product
 router.put('/:id', async (req, res) => {
-  //: update product data
-  Product.update(req.body, {
-    where: {
-      id: req.params.id,
-    },
-  })
-    .then(product => {
-      //: find all associated tags from ProductTag
-      return ProductTag.findAll({ where: { product_id: req.params.id } });
-    })
-    .then(productTags => {
-      //: get list of current tag_ids
+  try {
+    //: update product data
+    const product = await Product.update(req.body, {
+      where: {
+        id: req.params.id,
+      },
+    });
+    if (req.body.tagIds && req.body.tagIds.length) {
+      const productTags = await ProductTag.findAll({ where: { product_id: req.params.id } });
       const productTagIds = productTags.map(({ tag_id }) => tag_id);
       //: create filtered list of new tag_ids
       const newProductTags = req.body.tagIds
@@ -88,13 +83,15 @@ router.put('/:id', async (req, res) => {
       const productTagsToRemove = productTags.filter(({ tag_id }) => !req.body.tagIds.includes(tag_id)).map(({ id }) => id);
 
       //: run both actions
-      return Promise.all([ProductTag.destroy({ where: { id: productTagsToRemove } }), ProductTag.bulkCreate(newProductTags)]);
-    })
-    .then(updatedProductTags => res.json(updatedProductTags))
-    .catch(err => {
-      //: console.log(err);
-      res.status(400).json(err);
-    });
+      await ProductTag.destroy({ where: { id: productTagsToRemove } });
+      await ProductTag.bulkCreate(newProductTags);
+    }
+
+    return res.json(product);
+  } catch (err) {
+    console.log(err);
+    res.status(400).json(err);
+  }
 });
 
 router.delete('/:id', async (req, res) => {
